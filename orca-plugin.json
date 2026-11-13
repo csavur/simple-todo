@@ -1,0 +1,119 @@
+{
+  "manifestVersion": 2,
+  "id": "simple-todo",
+  "name": "Simple Todo",
+  "version": "0.1.0",
+  "description": "A to-do list in the sidebar: Markdown to-dos with priorities, due days, tags and lists, tagged with your Orca projects, that you can hand to an agent and follow. Open to-dos show in the status bar.",
+  "license": "MIT",
+  "author": {
+    "name": "Celal Savur",
+    "url": "https://github.com/csavur"
+  },
+  "repository": "https://github.com/csavur/simple-todo",
+  "homepage": "https://github.com/csavur/simple-todo",
+  "icon": "assets/icon.png",
+  "cover": {
+    "path": "assets/cover.png",
+    "alt": "The Simple Todo panel in Orca: to-do cards with priorities, due days, tags and an agent at work on one of them."
+  },
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "simple-todo",
+        "title": "Simple Todo",
+        "icon": "check",
+        "entry": "panel/index.html"
+      }
+    ],
+    "commands": [
+      {
+        "id": "simple-todo.summary",
+        "title": "Simple Todo: Show Open Tasks"
+      },
+      {
+        "id": "simple-todo.quickAdd",
+        "title": "Simple Todo: New To-do"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "simple-todo.quickAdd",
+        "key": "Mod+Alt+Slash"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "open",
+        "icon": "check",
+        "tooltip": "Open to-dos",
+        "command": "simple-todo.summary"
+      }
+    ],
+    "settings": [
+      {
+        "key": "promptPrefix",
+        "title": "Text before a to-do sent to an agent",
+        "description": "Put before the to-do's text when you send it to an agent, for example: Work on this and report back when done.",
+        "type": "string",
+        "default": "",
+        "multiline": true,
+        "placeholder": "Work on this and report back when done:"
+      },
+      {
+        "key": "autoComplete",
+        "title": "Mark a to-do done when its agent finishes",
+        "description": "When the agent a to-do was sent to has worked and then finished, mark the to-do done.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "archiveAfterDays",
+        "title": "Archive done to-dos after (days)",
+        "description": "Done to-dos older than this move to Archived. 0 never archives.",
+        "type": "integer",
+        "default": 14,
+        "minimum": 0,
+        "maximum": 3650
+      },
+      {
+        "key": "dueReminders",
+        "title": "Remind me when a to-do is due",
+        "description": "Show a desktop notification when a to-do becomes due or overdue.",
+        "type": "boolean",
+        "default": true
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "storage:own"
+    },
+    {
+      "kind": "workspace:read"
+    },
+    {
+      "kind": "workspace:write"
+    },
+    {
+      "kind": "agent:read"
+    },
+    {
+      "kind": "agent:launch"
+    },
+    {
+      "kind": "terminal:send"
+    },
+    {
+      "kind": "notifications:show"
+    },
+    {
+      "kind": "settings:own"
+    }
+  ]
+}

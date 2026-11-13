@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simple Todo</title>
+    <link rel="stylesheet" href="./panel.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="header"></div>
+      <div id="composer"></div>
+      <div class="toolbar" id="toolbar" hidden>
+        <label class="search">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input id="search" type="search" placeholder="Search to-dos" aria-label="Search to-dos" data-input="search" autocomplete="off" spellcheck="false" />
+        </label>
+      </div>
+      <div id="summary"></div>
+      <div id="list"></div>
+    </div>
+    <div id="toast"></div>
+    <input id="import-file" type="file" accept=".json,.md,.markdown,.txt,application/json,text/markdown,text/plain" hidden />
+    <script type="module" src="../src/ui/main.ts"></script>
+  </body>
+</html>

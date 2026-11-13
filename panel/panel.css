@@ -1,0 +1,1311 @@
+/* Simple Todo's panel. Colours come from Orca's theme variables, so it follows the active theme
+   and light/dark switches; the type is Geist, the font Orca's own interface uses. */
+
+@font-face {
+  font-family: 'Geist';
+  src: url('./fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: block;
+}
+
+:root {
+  --pad: 14px;
+  --radius: 8px;
+  --line: var(--orca-border);
+  --subtle: color-mix(in srgb, var(--orca-foreground) 6%, transparent);
+  --subtle-strong: color-mix(in srgb, var(--orca-foreground) 10%, transparent);
+  --dim: var(--orca-muted-foreground);
+  /* A to-do card: lifted off the panel, with an edge that reads in both themes. */
+  --surface: color-mix(in srgb, var(--orca-foreground) 5%, var(--orca-background));
+  --surface-strong: color-mix(in srgb, var(--orca-foreground) 9%, var(--orca-background));
+  --edge: color-mix(in srgb, var(--orca-foreground) 14%, var(--orca-background));
+  --edge-strong: color-mix(in srgb, var(--orca-foreground) 26%, var(--orca-background));
+  --urgent: #e5484d;
+  --high: #f59e0b;
+  --medium: #3b82f6;
+  --low: var(--orca-muted-foreground);
+}
+
+* {
+  box-sizing: border-box;
+  /* Scrollbars follow the theme instead of the browser's light default. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--orca-foreground) 22%, transparent) transparent;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.light {
+  color-scheme: light;
+}
+
+/* Menus scroll without a bar: it would only crowd a narrow list. */
+.popover {
+  scrollbar-width: none;
+}
+
+.popover::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font: 13px/1.45 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--orca-foreground);
+  background: var(--orca-background);
+  -webkit-font-smoothing: antialiased;
+  overflow-y: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+:focus-visible {
+  outline: 2px solid var(--orca-ring);
+  outline-offset: 1px;
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.grow {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--dim);
+}
+
+.anchor {
+  position: relative;
+  display: flex;
+}
+
+/* --- header --- */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px 8px var(--pad);
+}
+
+/* The list's name. Pressing it opens the list menu; the pencil beside it renames the list. */
+.title-row {
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  margin: -2px -6px;
+}
+
+.title,
+.title-input {
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.title:hover,
+.title[aria-expanded='true'] {
+  background: var(--subtle-strong);
+}
+
+.title-caret {
+  width: 12px;
+  height: 12px;
+  color: var(--dim);
+}
+
+/* The pencil: always there on a list still called by the default name, and on a named one
+   only when the title is pointed at or the pencil is focused. */
+.title-edit {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 5px;
+  color: var(--dim);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.title-edit .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.title-edit.unnamed {
+  opacity: 0.75;
+}
+
+.title-row:hover .title-edit,
+.title-edit:focus-visible {
+  opacity: 1;
+}
+
+.title-edit:hover {
+  background: var(--subtle-strong);
+  color: var(--orca-foreground);
+}
+
+/* As wide as the name being typed, growing with it, never past the space the header has. */
+.title-input {
+  display: block;
+  margin: -2px -6px;
+  field-sizing: content;
+  min-width: 7ch;
+  max-width: calc(100% + 12px);
+  outline: 0;
+  border-color: var(--orca-ring);
+  background: var(--orca-background);
+}
+
+.lists-popover {
+  left: 0;
+  right: auto;
+  min-width: 230px;
+}
+
+.menu-confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.overdue {
+  color: var(--urgent);
+}
+
+.subtitle {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--dim);
+}
+
+.icon-button:hover:not(:disabled),
+.icon-button[aria-expanded='true'] {
+  background: var(--subtle-strong);
+  color: var(--orca-foreground);
+}
+
+.icon-button[data-on='true'] {
+  color: var(--orca-foreground);
+  background: var(--subtle-strong);
+}
+
+.icon-button[data-on='true']::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--medium);
+}
+
+/* --- popovers and menus --- */
+
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 16px));
+  max-height: min(420px, calc(100vh - 80px));
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--orca-popover);
+  color: var(--orca-popover-foreground);
+  box-shadow:
+    0 10px 30px rgb(0 0 0 / 0.28),
+    0 2px 6px rgb(0 0 0 / 0.18);
+}
+
+.form {
+  position: relative;
+}
+
+.slash-popover {
+  left: 0;
+  right: auto;
+  width: min(250px, 100%);
+  max-height: min(430px, 70vh);
+}
+
+.slash-item[aria-selected='true'] {
+  background: var(--subtle-strong);
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+.slash-hint {
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--dim);
+}
+
+.slash-empty {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.sort-popover {
+  min-width: 140px;
+}
+
+.menu-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 4px;
+}
+
+.menu-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dim);
+}
+
+.menu-rule {
+  height: 1px;
+  margin: 6px -6px;
+  background: var(--line);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: var(--subtle-strong);
+}
+
+.menu-item.danger {
+  color: var(--urgent);
+}
+
+.menu-item .lead {
+  color: var(--dim);
+}
+
+.menu-item.danger .lead {
+  color: inherit;
+}
+
+.tick {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.check-item[aria-checked='false'] .grow {
+  color: var(--dim);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--low);
+}
+
+.dot.priority-none {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--dim);
+}
+
+.priority-urgent {
+  --tone: var(--urgent);
+}
+.priority-high {
+  --tone: var(--high);
+}
+.priority-medium {
+  --tone: var(--medium);
+}
+.priority-low {
+  --tone: var(--low);
+}
+
+.dot.priority-urgent,
+.dot.priority-high,
+.dot.priority-medium,
+.dot.priority-low {
+  background: var(--tone);
+}
+
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.text-button:hover:not(:disabled) {
+  color: var(--orca-foreground);
+  background: var(--subtle);
+}
+
+.text-button.danger {
+  color: var(--urgent);
+}
+
+/* --- toolbar: search --- */
+
+.toolbar {
+  display: grid;
+  gap: 8px;
+  padding: 2px var(--pad) 10px;
+}
+
+.toolbar[hidden] {
+  display: none;
+}
+
+.count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--subtle);
+  color: var(--dim);
+}
+
+.search:focus-within {
+  border-color: var(--orca-ring);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--orca-foreground);
+}
+
+.search input::placeholder,
+.field::placeholder {
+  color: var(--dim);
+}
+
+.search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+/* --- summary line --- */
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 10px 4px var(--pad);
+  border-top: 1px solid var(--line);
+}
+
+/* Which to-dos are listed, and how many: a dropdown where a row of tabs used to be. */
+.view-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  margin-left: -8px;
+  padding: 0 6px 0 8px;
+  border-radius: 7px;
+  font-weight: 600;
+}
+
+.view-button:hover,
+.view-button[aria-expanded='true'] {
+  background: var(--subtle-strong);
+}
+
+.view-button .icon {
+  width: 12px;
+  height: 12px;
+  color: var(--dim);
+}
+
+.view-button .count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--subtle-strong);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 17px;
+}
+
+.view-popover {
+  left: -8px;
+  right: auto;
+  min-width: 160px;
+}
+
+.sort-button .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+/* --- forms --- */
+
+.composer {
+  margin: 0 var(--pad) 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--subtle);
+}
+
+.form {
+  display: grid;
+  gap: 8px;
+}
+
+.field {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--orca-input, var(--line));
+  border-radius: 7px;
+  outline: 0;
+  background: var(--orca-background);
+}
+
+.field:focus {
+  border-color: var(--orca-ring);
+}
+
+.textarea {
+  display: block;
+  min-height: 68px;
+  max-height: 320px;
+  resize: none;
+  line-height: 1.45;
+}
+
+.preview {
+  min-height: 68px;
+  padding: 6px 9px;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select-wrap > .lead,
+.select-wrap > .dot {
+  position: absolute;
+  left: 9px;
+  pointer-events: none;
+  color: var(--dim);
+}
+
+.select-wrap > .caret {
+  position: absolute;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  color: var(--dim);
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-left: 28px;
+  padding-right: 24px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.button {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.button.ghost {
+  color: var(--dim);
+}
+
+.button.ghost:hover {
+  color: var(--orca-foreground);
+  background: var(--subtle-strong);
+}
+
+.button.primary {
+  background: var(--orca-primary);
+  color: var(--orca-primary-foreground);
+}
+
+.button.danger {
+  background: var(--urgent);
+  color: #fff;
+}
+
+.button.primary:hover:not(:disabled),
+.button.danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* --- rows --- */
+
+/* Each to-do is a card of its own: a raised surface with a clear edge, set apart from the
+   next, with its priority as a coloured bar down the left side. */
+.rows {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 6px;
+  padding: 11px 8px 11px 15px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.16);
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.row::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 5px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--tone, transparent);
+}
+
+.row.priority-none::before {
+  background: var(--subtle-strong);
+}
+
+.row:hover,
+.row.active {
+  border-color: var(--edge-strong);
+  background: var(--surface-strong);
+}
+
+.row.editing {
+  display: block;
+  padding: 12px 12px 12px 16px;
+  border-color: var(--edge-strong);
+  background: var(--surface-strong);
+}
+
+/* The drag handle has a column of its own beside the priority bar. It is always there, quiet
+   at rest and plain once the card is pointed at, with a target big enough to grab. */
+.grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 24px;
+  margin: -2px 0 0 -4px;
+  border-radius: 5px;
+  color: var(--dim);
+  opacity: 0.4;
+  cursor: grab;
+  transition:
+    opacity 0.12s,
+    background 0.12s;
+}
+
+.grip .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.row:hover .grip {
+  opacity: 0.8;
+}
+
+.grip:hover,
+.grip:focus-visible {
+  opacity: 1;
+  background: var(--subtle-strong);
+  color: var(--orca-foreground);
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+/* The card being moved leaves a quiet outline where it was. */
+.row.dragging {
+  border-style: dashed;
+  border-color: var(--edge-strong);
+  background: transparent;
+  box-shadow: none;
+}
+
+.row.dragging > * {
+  opacity: 0.25;
+}
+
+/* While a card is in hand, nothing else reacts to the pointer passing over it. */
+.is-dragging .row:not(.dragging) {
+  border-color: var(--edge);
+  background: var(--surface);
+}
+
+.is-dragging .row > * {
+  pointer-events: none;
+}
+
+/* Where the card will land: a thin line in the middle of the gap between two cards. */
+.row.drop-before::after,
+.row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--medium);
+  pointer-events: none;
+}
+
+.row.drop-before::after {
+  top: -6px;
+}
+
+.row.drop-after::after {
+  bottom: -6px;
+}
+
+.row-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.row-actions {
+  gap: 0;
+  margin-top: -3px;
+}
+
+/* Quiet until the row is pointed at or in use, like the row controls of Orca's own lists. */
+.row-actions .icon-button {
+  opacity: 0.55;
+}
+
+.row:hover .row-actions .icon-button,
+.row.active .row-actions .icon-button,
+.row-actions .icon-button:focus-visible {
+  opacity: 1;
+}
+
+.row.done .md {
+  color: var(--dim);
+}
+
+.row.done .md > :first-child {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--dim) 60%, transparent);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  margin-top: 7px;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.meta-item .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.priority-text {
+  color: var(--tone);
+  font-weight: 500;
+}
+
+.section {
+  flex: 1 1 100%;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dim);
+}
+
+.confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.choices {
+  display: grid;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 7px;
+  text-align: left;
+}
+
+.choice:hover {
+  background: var(--subtle-strong);
+}
+
+.choice[aria-checked='true'] {
+  background: var(--subtle-strong);
+}
+
+.choice .lead {
+  color: var(--dim);
+}
+
+.choice-title,
+.choice-detail {
+  display: block;
+}
+
+.choice-detail {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.radio {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--dim);
+}
+
+.choice[aria-checked='true'] .radio {
+  box-shadow:
+    inset 0 0 0 1.5px var(--orca-foreground),
+    inset 0 0 0 4px var(--orca-background),
+    inset 0 0 0 7px var(--orca-foreground);
+}
+
+/* --- task text --- */
+
+.md {
+  overflow-wrap: anywhere;
+}
+
+.md > * {
+  margin: 0 0 4px;
+}
+
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md > :first-child {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.md h4 {
+  font-size: inherit;
+  font-weight: 600;
+}
+
+.md ul,
+.md ol {
+  padding-left: 18px;
+}
+
+.md ul {
+  list-style: disc;
+}
+
+.md li::marker {
+  color: var(--dim);
+}
+
+.md li.depth-1 {
+  margin-left: 14px;
+}
+.md li.depth-2 {
+  margin-left: 28px;
+}
+.md li.depth-3 {
+  margin-left: 42px;
+}
+
+.md li.task {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.md li.task.depth-1 {
+  margin-left: -4px;
+}
+.md li.task.depth-2 {
+  margin-left: 10px;
+}
+.md li.task.depth-3 {
+  margin-left: 24px;
+}
+
+.md li.task label {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.md li.task input {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 3px 0 0;
+  border: 1.5px solid var(--dim);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.md li.task input:checked {
+  border-color: var(--orca-foreground);
+  /* The tick is cut out of the filled box, so it follows the theme. */
+  background: var(--orca-foreground)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / 10px no-repeat;
+}
+
+.md li.task input:disabled {
+  cursor: default;
+}
+
+.md li.task.ticked span {
+  color: var(--dim);
+  text-decoration: line-through;
+}
+
+.md code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--subtle-strong);
+  font:
+    12px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.md pre {
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--subtle-strong);
+  overflow-x: auto;
+}
+
+.md pre code {
+  padding: 0;
+  background: none;
+}
+
+.md blockquote {
+  padding-left: 9px;
+  border-left: 2px solid var(--line);
+  color: var(--dim);
+}
+
+.md a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--dim);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* --- empty state and toast --- */
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 44px var(--pad);
+  text-align: center;
+  color: var(--dim);
+}
+
+.empty-icon {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 8px;
+}
+
+.empty-title {
+  font-weight: 500;
+  color: var(--orca-foreground);
+}
+
+.empty-detail {
+  font-size: 12px;
+}
+
+.loading {
+  padding: 4px 0;
+}
+
+#toast {
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--orca-popover);
+  color: var(--orca-popover-foreground);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
+  pointer-events: auto;
+}
+
+.toast.danger {
+  border-color: color-mix(in srgb, var(--urgent) 55%, var(--line));
+}
+
+.toast.success::before,
+.toast.danger::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #30a46c;
+}
+
+.toast.danger::before {
+  background: var(--urgent);
+}
+
+/* --- tags, due days, progress, agents ------------------------------------------------------ */
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.input-wrap > .lead {
+  position: absolute;
+  left: 9px;
+  pointer-events: none;
+  color: var(--dim);
+}
+
+.input-wrap > .field {
+  padding-left: 28px;
+}
+
+.date-wrap {
+  flex: 0 0 auto;
+}
+
+.field.date {
+  width: 146px;
+  color-scheme: inherit;
+}
+
+/* An empty date box reads as a quiet hint, not as a date. */
+.field.date.unset {
+  color: var(--dim);
+}
+
+.field.date::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--subtle-strong);
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.chip:hover {
+  color: var(--orca-foreground);
+  background: color-mix(in srgb, var(--orca-foreground) 16%, transparent);
+}
+
+.due-overdue {
+  color: var(--urgent);
+  font-weight: 500;
+}
+
+.due-today {
+  color: var(--high);
+  font-weight: 500;
+}
+
+.due-soon {
+  color: var(--orca-foreground);
+}
+
+.progress .bar {
+  display: block;
+  width: 34px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--subtle-strong);
+  overflow: hidden;
+}
+
+.progress .bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: #30a46c;
+}
+
+.agent-state {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--subtle-strong);
+  font-size: 10.5px;
+  line-height: 16px;
+}
+
+.agent-working .agent-state {
+  background: color-mix(in srgb, var(--medium) 22%, transparent);
+  color: var(--medium);
+}
+
+.agent-blocked .agent-state {
+  background: color-mix(in srgb, var(--high) 22%, transparent);
+  color: var(--high);
+}
+
+.agent-done .agent-state {
+  background: color-mix(in srgb, #30a46c 22%, transparent);
+  color: #30a46c;
+}
+
+/* --- long to-dos, archived ones, undo ------------------------------------------------------- */
+
+.md.folded {
+  max-height: 9.5em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent);
+}
+
+.fold-toggle {
+  margin: 3px 0 0 -4px;
+}
+
+.grip-space {
+  flex: none;
+  width: 14px;
+}
+
+.row.archived {
+  background: transparent;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.row.archived .md {
+  color: var(--dim);
+}
+
+.toast.neutral::before {
+  content: none;
+}
+
+.toast-undo {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--orca-foreground);
+}
+
+/* The date box brings its own calendar button. */
+.date-wrap > .lead {
+  display: none;
+}
+
+.date-wrap > .field {
+  padding-left: 9px;
+}
