@@ -43,7 +43,7 @@ The to-do shows in the panel within a few seconds, marked "from an agent". You c
 
 Agents learn how from the `simple-todo` skill, [skills/simple-todo/SKILL.md](skills/simple-todo/SKILL.md). There are two ways to install it; use either.
 
-**With the plugin (nothing to do).** "Let agents add to-dos", under the plugin in Orca's Settings, is on by default. While it is on, the plugin keeps the skill in `~/.agents/skills/simple-todo`, where Codex, opencode, pi and other agents that read the shared skills folder find it, and links it into `~/.claude/skills` for Claude Code. It updates the skill when the plugin updates and removes it when you turn the setting off.
+**With the plugin (nothing to do).** "Let agents add to-dos", under the plugin in Orca's Settings, is on by default. While it is on, the plugin keeps the skill in `~/.agents/skills/simple-todo`, where opencode, pi and other agents that read the shared skills folder find it, and links it into `~/.claude/skills` for Claude Code. It updates the skill when the plugin updates and removes it when you turn the setting off.
 
 **Yourself.** If you keep your agents' skills in your own setup, turn the setting off and install the skill with the [skills CLI](https://github.com/vercel-labs/skills):
 
