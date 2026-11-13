@@ -14,13 +14,16 @@ export interface Settings {
   archiveAfterDays: number
   /** Show a desktop notification when a to-do becomes due. */
   dueReminders: boolean
+  /** Keep the agent skill installed, so agents know how to add to-dos. */
+  agentSkill: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   promptPrefix: '',
   autoComplete: false,
   archiveAfterDays: 14,
-  dueReminders: true
+  dueReminders: true,
+  agentSkill: true
 }
 
 export function parseSettings(stored: Record<string, unknown>): Settings {
@@ -30,7 +33,8 @@ export function parseSettings(stored: Record<string, unknown>): Settings {
     autoComplete: stored.autoComplete === true,
     archiveAfterDays:
       typeof days === 'number' && Number.isFinite(days) && days >= 0 ? Math.floor(days) : DEFAULT_SETTINGS.archiveAfterDays,
-    dueReminders: stored.dueReminders !== false
+    dueReminders: stored.dueReminders !== false,
+    agentSkill: stored.agentSkill !== false
   }
 }
 

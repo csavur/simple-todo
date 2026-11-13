@@ -17,11 +17,12 @@ const todo = (id: string, extra: Partial<Todo> = {}): Todo => ({ id, text: `Task
 
 test('settings fall back to their defaults', () => {
   assert.deepEqual(parseSettings({}), DEFAULT_SETTINGS)
-  assert.deepEqual(parseSettings({ promptPrefix: 'Do:', autoComplete: true, archiveAfterDays: 3.9, dueReminders: false }), {
+  assert.deepEqual(parseSettings({ promptPrefix: 'Do:', autoComplete: true, archiveAfterDays: 3.9, dueReminders: false, agentSkill: false }), {
     promptPrefix: 'Do:',
     autoComplete: true,
     archiveAfterDays: 3,
-    dueReminders: false
+    dueReminders: false,
+    agentSkill: false
   })
   assert.equal(parseSettings({ archiveAfterDays: -1 }).archiveAfterDays, 14)
 })
