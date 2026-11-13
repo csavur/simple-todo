@@ -1,6 +1,10 @@
 // Runs src/worker.ts's activate(orca) with the orca object Orca passes, over a mock host.
 import { atom, Button, h, update } from 'orca'
 import { assert, hostError, mockHost, mount, mountWorker, test } from 'orca/testing'
+import { mkdtemp, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { skillText } from './core/skill.ts'
 import { createWorker, groupProjects } from './worker.ts'
 import type { InboxFile } from './worker/files.ts'
 import { terminalIn } from './worker/agents.ts'
@@ -55,11 +59,10 @@ function fakeInbox(text = ''): InboxFile & { text: string } {
   return {
     path: '/home/me/.simple-todo/inbox.md',
     text,
-    async read() {
-      return this.text
-    },
-    async clear() {
+    async take() {
+      const taken = this.text
       this.text = ''
+      return taken
     }
   }
 }
@@ -381,6 +384,24 @@ test('takes to-dos from the inbox file into the list being shown, and empties it
   // Nothing new: nothing is added twice.
   await handle.look()
   assert.equal((host.data().storage.todos as unknown[]).length, 4)
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('keeps the agent skill installed while the setting is on, and removes it when turned off', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'simple-todo-'))
+  const file = join(home, '.agents', 'skills', 'simple-todo', 'SKILL.md')
+  let agentSkill = true
+  const host = mockHost({ storage: { todos }, results: { 'settings.get': () => ({ settings: { agentSkill } }) } })
+  const handle = createWorker(cli, { inbox: fakeInbox(), timers: false, skillHome: home })
+  const worker = await mountWorker(handle, { host })
+  await handle.look()
+  assert.equal(await readFile(file, 'utf8'), skillText())
+  assert.equal(host.data().storage.skill, skillText())
+  agentSkill = false
+  await handle.look()
+  await assert.rejects(readFile(file, 'utf8'))
+  assert.equal(host.data().storage.skill, undefined)
   assert.deepEqual(worker.refusals, [])
   await worker.deactivate()
 })

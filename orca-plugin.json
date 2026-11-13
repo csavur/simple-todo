@@ -73,6 +73,13 @@
         "default": false
       },
       {
+        "key": "agentSkill",
+        "title": "Let agents add to-dos",
+        "description": "Keeps a simple-todo skill in ~/.agents/skills, linked into ~/.claude/skills, that tells coding agents how to add a to-do. Turning it off removes the skill. A skill of that name you installed or changed yourself is left alone.",
+        "type": "boolean",
+        "default": true
+      },
+      {
         "key": "archiveAfterDays",
         "title": "Archive done to-dos after (days)",
         "description": "Done to-dos older than this move to Archived. 0 never archives.",

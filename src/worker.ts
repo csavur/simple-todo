@@ -5,6 +5,8 @@
 // running agents beyond the focused workspace, are only reachable through the `orca` CLI.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { dayOf, parseTodos, statusBarOf, summaryOf } from './core/todos.ts'
+import { homedir } from 'node:os'
+import { skillText } from './core/skill.ts'
 import { DEFAULT_LIST, PREFS_KEY, TODOS_KEY, type Todo } from './core/types.ts'
 import type { OrcaProject, Outcome } from './protocol.ts'
 import { agentStates, listAgents, sendToAgent, terminalIn } from './worker/agents.ts'
@@ -22,12 +24,16 @@ import {
 import { runOrcaCli, type OrcaCli } from './worker/cli.ts'
 import { inboxFile, type InboxFile } from './worker/files.ts'
 import { listRemoteProjects, mergeProjects } from './worker/remote.ts'
+import { syncSkill } from './worker/skill.ts'
 
 const STATUS_BAR_ITEM = 'open'
 const PANEL_ID = 'simple-todo'
 const REMINDED_KEY = 'reminded'
+/** The text of the agent skill the worker installed, while that copy is still its own. */
+const SKILL_KEY = 'skill'
 
-/** How often the worker looks: at the inbox, at the agents to-dos were sent to, and at the clock. */
+/** How often the worker looks: at the inbox, at the agents to-dos were sent to, and at the clock
+ *  (which is also how often it checks the agent skill). */
 const INBOX_MS = 5_000
 const AGENTS_MS = 20_000
 const CHORES_MS = 60_000
@@ -73,6 +79,8 @@ export function groupProjects(workspaces: readonly ListedWorkspace[]): OrcaProje
 export interface WorkerOptions {
   /** The inbox file; tests stand in for the disk. */
   inbox?: InboxFile
+  /** The home folder to keep the agent skill installed in. Without one the skill is left alone. */
+  skillHome?: string
   /** Whether to keep looking on timers. Tests turn them off and call for a look themselves. */
   timers?: boolean
 }
@@ -106,7 +114,7 @@ export function createWorker(cli: OrcaCli, options: WorkerOptions = {}): WorkerH
   }
 }
 
-const worker = createWorker(runOrcaCli)
+const worker = createWorker(runOrcaCli, { skillHome: homedir() })
 export default worker.default
 /** Orca awaits this before it stops the worker. */
 export const deactivate = worker.deactivate
@@ -229,9 +237,10 @@ function start(
 
   // --- looking, on a timer -----------------------------------------------------------------
 
-  /** Takes in what agents appended to the inbox file, then empties it. */
+  /** Takes in what agents appended to the inbox file. */
   async function takeInbox(): Promise<void> {
-    const source = await inbox.read()
+    // Taken out of the file first: if storing fails the lines are lost, but never added twice.
+    const source = await inbox.take()
     if (!source.trim()) {
       return
     }
@@ -239,8 +248,6 @@ function start(
     const prefs = (await orca.storage.get(PREFS_KEY)) as { list?: unknown } | null
     const list = typeof prefs?.list === 'string' && prefs.list ? prefs.list : DEFAULT_LIST
     const added = inboxTodos(source, list, newId, now, dayOf(now))
-    // Emptied first: if storing fails the lines are lost, but they are never added twice.
-    await inbox.clear()
     if (added.length > 0) {
       await changeTodos((todos) => [...todos, ...added])
       orca.log(`added ${added.length} to-do(s) from the inbox`)
@@ -283,11 +290,36 @@ function start(
     }
   }
 
+  /** Installs, updates or removes the agent skill, as the setting says. */
+  let skillNotes = ''
+  async function keepSkill(): Promise<void> {
+    if (options.skillHome === undefined) {
+      return
+    }
+    const { agentSkill } = await settings()
+    const stored = await orca.storage.get(SKILL_KEY)
+    const before = typeof stored === 'string' ? stored : null
+    const { written, notes } = await syncSkill(options.skillHome, skillText(), agentSkill, before)
+    if (written !== before) {
+      await (written === null ? orca.storage.delete(SKILL_KEY) : orca.storage.set(SKILL_KEY, written))
+      orca.log(written === null ? 'removed the agent skill' : 'installed the agent skill')
+    }
+    // Said once, not on every look.
+    if (notes.join('\n') !== skillNotes) {
+      skillNotes = notes.join('\n')
+      notes.forEach((note) => orca.log(note))
+    }
+  }
+
   const guarded = (name: string, run: () => Promise<void>) => (): Promise<void> =>
     run().catch((error: unknown) => orca.log(`${name} failed: ${messageOf(error)}`))
   const lookAtInbox = guarded('inbox', takeInbox)
   const lookAtAgents = guarded('agents', followAgents)
   const lookAtClock = guarded('chores', chores)
+  // One at a time: a setting flipped during a look must not write while the look removes.
+  let skillRun: Promise<void> = Promise.resolve()
+  const lookAtSkill = (): Promise<void> => (skillRun = skillRun.then(guarded('agent skill', keepSkill)))
+  const settingsWatch = options.skillHome === undefined ? null : orca.settings.onDidChange(() => void lookAtSkill())
 
   const timers =
     options.timers === false
@@ -295,11 +327,14 @@ function start(
       : [
           setInterval(() => void lookAtInbox(), INBOX_MS),
           setInterval(() => void lookAtAgents(), AGENTS_MS),
-          setInterval(() => void lookAtClock(), CHORES_MS)
+          setInterval(() => void lookAtClock(), CHORES_MS),
+          // The setting is heard as it changes; this puts back a skill that was removed by hand.
+          setInterval(() => void lookAtSkill(), CHORES_MS)
         ]
   if (options.timers !== false) {
     void lookAtInbox()
     void lookAtClock()
+    void lookAtSkill()
   }
 
   orca.panels.handle('projects.list', () =>
@@ -366,11 +401,13 @@ function start(
   return {
     stop() {
       timers.forEach((timer) => clearInterval(timer))
+      settingsWatch?.dispose()
     },
     async look() {
       await lookAtInbox()
       await lookAtAgents()
       await lookAtClock()
+      await lookAtSkill()
     }
   }
 }
