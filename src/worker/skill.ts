@@ -45,7 +45,8 @@ async function occupied(path: string): Promise<boolean> {
 /** Whether `path` is the link this module makes. */
 async function isOurLink(path: string): Promise<boolean> {
   try {
-    return (await readlink(path)) === LINK_TARGET
+    // Windows reads a link back with backslashes.
+    return (await readlink(path)).replace(/\\/g, '/') === LINK_TARGET
   } catch {
     return false
   }
