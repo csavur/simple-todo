@@ -1265,6 +1265,18 @@ async function start(): Promise<void> {
 
   // Another open panel of this plugin, or the worker, changed the list.
   orca.storage.onDidChange(({ key }) => {
+    if (key === PREFS_KEY) {
+      // The worker adds, renames and removes lists to match the vault; the rest is this panel's own.
+      void orca.storage.get(PREFS_KEY).then((stored) => {
+        const { lists } = parsePrefs(stored)
+        if (JSON.stringify(lists) !== JSON.stringify(state.prefs.lists)) {
+          const list = lists.some((item) => item.id === state.prefs.list) ? state.prefs.list : lists[0].id
+          state.prefs = { ...state.prefs, lists, list }
+          render()
+        }
+      })
+      return
+    }
     if (key !== TODOS_KEY) {
       return
     }

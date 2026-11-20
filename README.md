@@ -1,12 +1,12 @@
 # Simple Todo
 
-A to-do list in [Orca](https://www.onorca.dev)'s right sidebar: Markdown to-dos with priorities, due days, tags and lists, that you can hand to an agent and follow.
+A to-do list in [Orca](https://www.onorca.dev)'s right sidebar: Markdown to-dos with priorities, due days, tags and lists, that you can hand to an agent and follow, and that can live in an Obsidian vault so Obsidian Sync carries them to your other machines.
 
 ![The Simple Todo panel](assets/cover.png)
 
 ## Install
 
-In Orca, open Settings → Plugins and search for `simple-todo`, or run:
+Install it from this repository:
 
 ```sh
 orca plugin install csavur/simple-todo
@@ -26,7 +26,28 @@ Orca lists the access the plugin asks for (see [Access](#access)) and installs i
 - **Housekeeping**: undo after deleting, clearing, archiving and importing; done to-dos are archived after a number of days; export a list as Markdown or everything as a JSON backup, and import either.
 - **Quick add and status bar**: Cmd+Alt+/ opens the form for a new to-do. The status bar shows how many are open, flagged when any is urgent or overdue.
 
-Tasks are stored on this machine only, in the plugin's own storage.
+- **Obsidian vault**: keep the lists as notes in a folder of your vault, edit them in Obsidian, and let Obsidian Sync carry them between machines.
+
+Tasks are stored in the plugin's own storage on this machine, and also in the vault folder when one is set.
+
+## Obsidian vault
+
+Set **Obsidian vault folder** under the plugin in Orca's Settings to the full path of a folder in your vault, such as `D:\Obsidian\Vault\To-dos`. Make the folder first, and use one of its own. On each machine, point the setting at the same folder in that machine's copy of the vault.
+
+Every few seconds the plugin brings the folder and the panel into step:
+
+- Each list is one note, named after the list. Renaming the note renames the list, and the other way round.
+- Each to-do is a checklist line with the same markers agents use (`!high @project #tag due:2026-01-31`), and its notes are indented under it. Open to-dos come first, then `## Done` and `## Archived`.
+- A trailing `%%id:… created:…%%` keeps the to-do's id and times. Obsidian hides it in reading view; leave it alone when you edit a line.
+- In Obsidian you can tick a box, change a line, delete a line, or move one to another list's note. Type a new line (with or without `- [ ]`) to add a to-do; it gets its id on the next sync.
+- A to-do changed in both places between two syncs keeps the panel's version, and the plugin log says so.
+- The agent a to-do was sent to stays with the machine that sent it.
+
+A note is a list only if its frontmatter has `simple-todo-list: <id>`. The plugin writes that line, and never reads, changes or removes other notes in the folder. Frontmatter and text above the first to-do are kept; other headings among the to-dos are not. To start a new list from Obsidian, copy a list note and give it a new name and id.
+
+Two safety rules: a folder that is not there (an unplugged drive) is not synced, and a folder that held list notes and now holds none is left alone rather than read as "every list was deleted". Deleting a list's note in the vault deletes that list, except the first list, whose note is written again.
+
+Obsidian Sync only syncs while Obsidian is running, so open Obsidian on a machine before expecting its to-dos to arrive.
 
 ## Agents
 
@@ -80,7 +101,7 @@ The plugin runs a worker (`trusted-worker`), which Orca keeps running to update 
 
 Projects on a paired Orca server belong to another Orca runtime, which the plugin API does not reach. For those the worker runs the `orca` CLI that ships with the app (`environment list`, `repo list`, `worktree list`, `worktree ps`, `terminal list`, `terminal send`, `worktree activate`, `agent launch` and `plugin open`). The CLI acts with your own access, outside the capability list above.
 
-The worker also touches three places in your home folder, outside the capability list too: it reads `~/.simple-todo/inbox.md`, and, while "Let agents add to-dos" is on, writes `~/.agents/skills/simple-todo` and a link to it in `~/.claude/skills`.
+The worker also touches three places in your home folder, outside the capability list too: it reads `~/.simple-todo/inbox.md`, and, while "Let agents add to-dos" is on, writes `~/.agents/skills/simple-todo` and a link to it in `~/.claude/skills`. When a vault folder is set, it reads and writes the list notes in that folder, and removes a list note it wrote when you delete the list.
 
 ## Develop
 
@@ -111,9 +132,9 @@ assets/            the plugin's icon and cover image
 panel/             the page, its stylesheet and font
 skills/            the skill that tells agents how to add a to-do
 src/
-├── core/          shared by the panel and the worker: data model, list functions, Markdown
+├── core/          shared by the panel and the worker: data model, list functions, Markdown, vault sync rules
 ├── ui/            the panel: state rules, markup, and the script that wires them to Orca
-├── worker/        the `orca` CLI runner, paired-server projects, running agents, the inbox, the skill installer, and the timed chores
+├── worker/        the `orca` CLI runner, paired-server projects, running agents, the inbox, the skill installer, the vault folder, and the timed chores
 ├── protocol.ts    the requests the panel makes of the worker
 └── worker.ts      status bar, palette command, workspaces and agents
 ```

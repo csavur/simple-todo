@@ -26,6 +26,8 @@ declare module 'node:fs/promises' {
   /** The path itself, not what a link at it points to. */
   export function lstat(path: string): Promise<{ isSymbolicLink(): boolean }>
   export function readlink(path: string): Promise<string>
+  export function readdir(path: string, options: { withFileTypes: true }): Promise<{ name: string; isFile(): boolean }[]>
+  export function stat(path: string): Promise<{ isDirectory(): boolean }>
   export function symlink(target: string, path: string, type: 'dir'): Promise<void>
 }
 

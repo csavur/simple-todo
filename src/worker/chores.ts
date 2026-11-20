@@ -16,6 +16,8 @@ export interface Settings {
   dueReminders: boolean
   /** Keep the agent skill installed, so agents know how to add to-dos. */
   agentSkill: boolean
+  /** A folder of Markdown notes to keep the lists in step with; empty keeps them on this machine. */
+  vaultFolder: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,7 +25,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoComplete: false,
   archiveAfterDays: 14,
   dueReminders: true,
-  agentSkill: true
+  agentSkill: true,
+  vaultFolder: ''
 }
 
 export function parseSettings(stored: Record<string, unknown>): Settings {
@@ -34,7 +37,8 @@ export function parseSettings(stored: Record<string, unknown>): Settings {
     archiveAfterDays:
       typeof days === 'number' && Number.isFinite(days) && days >= 0 ? Math.floor(days) : DEFAULT_SETTINGS.archiveAfterDays,
     dueReminders: stored.dueReminders !== false,
-    agentSkill: stored.agentSkill !== false
+    agentSkill: stored.agentSkill !== false,
+    vaultFolder: typeof stored.vaultFolder === 'string' ? stored.vaultFolder.trim() : ''
   }
 }
 

@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { skillText } from './core/skill.ts'
 import { createWorker, groupProjects } from './worker.ts'
 import type { InboxFile } from './worker/files.ts'
+import type { VaultDisk } from './worker/vault.ts'
 import { terminalIn } from './worker/agents.ts'
 import type { OrcaCli } from './worker/cli.ts'
 
@@ -495,5 +496,58 @@ test('lists an idle agent that the terminal list no longer names', async () => {
     ['term_busy', 'claude'],
     ['term_idle', 'claude']
   ])
+  await worker.deactivate()
+})
+
+/** A vault folder in memory. */
+function fakeVault(there = true): { disk: VaultDisk; files: Map<string, string> } {
+  const files = new Map<string, string>()
+  return {
+    files,
+    disk: {
+      folder: '/vault/Todo',
+      exists: async () => there,
+      read: async () => [...files].map(([name, text]) => ({ name, text })),
+      write: async ({ name, text }) => void files.set(name, text),
+      remove: async (name) => void files.delete(name)
+    }
+  }
+}
+
+test('keeps the lists in step with the vault folder set in its settings', async () => {
+  const vault = fakeVault()
+  const host = mockHost({
+    storage: { todos, prefs: { list: 'default', lists: [{ id: 'default', title: 'Home' }] } },
+    settings: { vaultFolder: '/vault/Todo' }
+  })
+  const handle = createWorker(cli, { inbox: fakeInbox(), timers: false, vaultDisk: () => vault.disk })
+  const worker = await mountWorker(handle, { host })
+  await handle.look()
+  assert.deepEqual([...vault.files.keys()], ['Home.md'])
+  assert.ok(vault.files.get('Home.md')?.includes('- [ ] Write docs !urgent %%id:a created:1%%'))
+
+  // Ticked on another machine, and a list added there.
+  vault.files.set('Home.md', vault.files.get('Home.md')!.replace('- [ ] Write docs', '- [x] Write docs'))
+  vault.files.set('Work.md', '---\nsimple-todo-list: work\n---\n\n- [ ] Plan sprint\n')
+  await handle.look()
+  const stored = host.data().storage.todos as unknown as { id: string; done: boolean; list?: string; text: string }[]
+  assert.equal(stored.find((todo) => todo.id === 'a')?.done, true)
+  assert.deepEqual(stored.at(-1) && { text: stored.at(-1)!.text, list: stored.at(-1)!.list }, { text: 'Plan sprint', list: 'work' })
+  const prefs = host.data().storage.prefs as unknown as { list: string; lists: unknown[] }
+  assert.deepEqual(prefs.lists, [{ id: 'default', title: 'Home' }, { id: 'work', title: 'Work' }])
+  assert.equal(prefs.list, 'default')
+  assert.match(vault.files.get('Work.md')!, /- \[ \] Plan sprint %%id:\S+ created:\d+%%/)
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('a vault folder that is not there is not synced', async () => {
+  const vault = fakeVault(false)
+  const host = mockHost({ storage: { todos }, settings: { vaultFolder: '/vault/Todo' } })
+  const handle = createWorker(cli, { inbox: fakeInbox(), timers: false, vaultDisk: () => vault.disk })
+  const worker = await mountWorker(handle, { host })
+  await handle.look()
+  assert.equal(vault.files.size, 0)
+  assert.equal(host.data().storage.vault, undefined)
   await worker.deactivate()
 })
