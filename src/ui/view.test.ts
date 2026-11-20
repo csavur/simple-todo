@@ -330,3 +330,16 @@ test('the toast shows a message, escaped', () => {
   assert.ok(!html.includes('data-act="undo"'))
   assert.ok(toast(stateOf({ toast: { tone: 'neutral', text: 'Deleted.', undo: [] } })).includes('data-act="undo">Undo</button>'))
 })
+
+test('the list menu shows the vault folder, and a box to set it', () => {
+  const off = listsPopover(stateOf({}))
+  assert.ok(off.includes('data-act="vault-edit"'))
+  assert.ok(off.includes('<span class="menu-sub truncate">Off</span>'))
+  const on = listsPopover(stateOf({ vaultFolder: 'D:\\Vault\\<To-dos>' }))
+  assert.ok(on.includes('D:\\Vault\\&lt;To-dos&gt;'))
+  const editing = listsPopover(stateOf({ vaultFolder: 'D:\\Vault', editingVault: true }))
+  assert.ok(editing.includes('data-input="vault" value="D:\\Vault"'))
+  assert.ok(editing.includes('placeholder="D:\\Obsidian\\Vault\\To-dos"'))
+  assert.ok(editing.includes('data-act="vault-save"'))
+  assert.ok(!editing.includes('data-act="vault-edit"'))
+})

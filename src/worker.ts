@@ -242,6 +242,9 @@ function start(
   })
 
   orca.panels.handle('inbox.path', () => ({ path: inbox.path }))
+  orca.panels.handle('vault.check', async ({ folder }) => ({
+    exists: await (options.vaultDisk ?? vaultDiskAt)(folder).exists()
+  }))
 
   // --- looking, on a timer -----------------------------------------------------------------
 

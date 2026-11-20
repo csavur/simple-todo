@@ -32,7 +32,7 @@ Tasks are stored in the plugin's own storage on this machine, and also in the va
 
 ## Obsidian vault
 
-Set **Obsidian vault folder** under the plugin in Orca's Settings to the full path of a folder in your vault, such as `D:\Obsidian\Vault\To-dos`. Make the folder first, and use one of its own. On each machine, point the setting at the same folder in that machine's copy of the vault.
+Open the list menu (the list's name at the top of the panel), choose **Obsidian vault…**, and enter the full path of a folder in your vault, such as `D:\Obsidian\Vault\To-dos`. Make the folder first, and use one of its own. On each machine, point the setting at the same folder in that machine's copy of the vault.
 
 Every few seconds the plugin brings the folder and the panel into step:
 

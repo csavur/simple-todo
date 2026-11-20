@@ -573,6 +573,50 @@ document.addEventListener('dragend', () => {
   clearDropMarks()
 })
 
+// --- the vault folder ----------------------------------------------------------------------
+
+function startVaultEdit(): void {
+  state.editingVault = true
+  render(['header'])
+  const input = document.querySelector<HTMLInputElement>('[data-input="vault"]')
+  input?.focus()
+  input?.select()
+}
+
+/** Saves the folder in the box as the vault folder setting, once the worker has found it. */
+async function saveVault(): Promise<void> {
+  const input = document.querySelector<HTMLInputElement>('[data-input="vault"]')
+  // Windows' "Copy as path" puts quotes around it.
+  const folder = (input?.value ?? '').trim().replace(/^"(.*)"$/, '$1').trim()
+  if (folder) {
+    const check = await orca.plugin.request('vault.check', { folder }).catch(() => null)
+    if (check && !check.exists) {
+      return showToast('danger', `There is no folder at ${folder}. Make it in your vault first, then save.`)
+    }
+  }
+  try {
+    await orca.settings.set('vaultFolder', folder)
+  } catch (error) {
+    return showToast('danger', `Could not save the vault folder: ${report(error)}`)
+  }
+  state.vaultFolder = folder
+  state.editingVault = false
+  state.popover = null
+  render(['header', 'summary'])
+  showToast('success', folder ? `Syncing the lists with ${folder}` : 'Vault sync is off')
+}
+
+async function loadVaultFolder(): Promise<void> {
+  const value = await orca.settings.get('vaultFolder').catch(() => undefined)
+  const folder = typeof value === 'string' ? value.trim() : ''
+  if (folder !== state.vaultFolder) {
+    state.vaultFolder = folder
+    if (state.popover === 'lists' && !state.editingVault) {
+      render(['header'])
+    }
+  }
+}
+
 // --- renaming the list ---------------------------------------------------------------------
 
 /** Keeps the rename box as wide as its text where the browser cannot size it from CSS alone. */
@@ -773,6 +817,7 @@ function onAct(act: string, target: HTMLElement): void {
     case 'lists-toggle':
       state.popover = state.popover === 'lists' ? null : 'lists'
       state.confirmList = false
+      state.editingVault = false
       return render(['header', 'summary'])
     case 'list-pick':
       return pickList(value)
@@ -800,6 +845,13 @@ function onAct(act: string, target: HTMLElement): void {
       return (document.getElementById('import-file') as HTMLInputElement).click()
     case 'copy-inbox':
       return void copyInboxInstructions()
+    case 'vault-edit':
+      return startVaultEdit()
+    case 'vault-cancel':
+      state.editingVault = false
+      return render(['header'])
+    case 'vault-save':
+      return void saveVault()
     case 'search-toggle':
       return setSearching(!state.searching)
     case 'form-submit':
@@ -1192,6 +1244,14 @@ document.addEventListener('keydown', (event) => {
       closeMenu()
     }
   }
+  if (target.dataset?.input === 'vault' && (event.key === 'Enter' || event.key === 'Escape')) {
+    event.preventDefault()
+    if (event.key === 'Enter') {
+      return void saveVault()
+    }
+    state.editingVault = false
+    return render(['header'])
+  }
   if (target.dataset?.input === 'title' && (event.key === 'Enter' || event.key === 'Escape')) {
     event.preventDefault()
     return endRename(event.key === 'Enter')
@@ -1299,6 +1359,10 @@ async function start(): Promise<void> {
       }
     })
     .catch(() => undefined)
+
+  void loadVaultFolder()
+  // Also changed under the plugin in Orca's Settings.
+  orca.settings.onDidChange(() => void loadVaultFolder())
 
   void loadProjects()
   orca.on('workspace.created', () => void loadProjects())

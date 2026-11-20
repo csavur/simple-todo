@@ -77,6 +77,7 @@ const ICONS = {
   list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   upload: '<path d="M12 16V5M7 10l5-5 5 5M5 20h14"/>',
+  folder: '<path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/>',
   move: '<path d="M4 12h14M13 7l5 5-5 5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
@@ -212,6 +213,21 @@ export function listsPopover(state: UiState): string {
             <button class="text-button" type="button" data-act="list-delete-no">Keep</button>
             <button class="text-button danger" type="button" data-act="list-delete-yes">Delete</button></div>`
         : item('list-delete', 'trash', 'Delete this list', 'danger')
+  // The folder box takes the whole menu: next to every list it would not fit.
+  if (state.editingVault) {
+    return `<div class="popover lists-popover" role="dialog" aria-label="Obsidian vault folder">
+      <div class="menu-form">
+        <label class="menu-label" for="vault-folder">Obsidian vault folder</label>
+        <input id="vault-folder" class="field menu-input" data-input="vault" value="${e(state.vaultFolder)}" placeholder="D:\\Obsidian\\Vault\\To-dos" autocomplete="off" spellcheck="false">
+        <div class="menu-hint">The full path of a folder of its own in your vault. Each list becomes a note there, and Obsidian Sync carries them to your other machines. Leave it empty to stop.</div>
+        <div class="menu-actions">
+          <button class="text-button" type="button" data-act="vault-cancel">Cancel</button>
+          <button class="text-button" type="button" data-act="vault-save">Save</button>
+        </div>
+      </div>
+    </div>`
+  }
+  const vault = `<button class="menu-item" type="button" role="menuitem" data-act="vault-edit" title="${e(state.vaultFolder || 'Keep the lists in an Obsidian vault')}">${icon('folder', 'lead')}<span class="grow menu-two"><span>Obsidian vault…</span><span class="menu-sub truncate">${state.vaultFolder ? e(state.vaultFolder) : 'Off'}</span></span></button>`
   return `<div class="popover lists-popover" role="menu">
     <div class="menu-head"><span class="menu-title">Lists</span></div>
     ${lists}
@@ -222,6 +238,8 @@ export function listsPopover(state: UiState): string {
     ${item('export-json', 'download', 'Export a backup (JSON)')}
     ${item('import', 'upload', 'Import a file…')}
     ${item('copy-inbox', 'copy', 'Copy instructions for agents')}
+    <div class="menu-rule"></div>
+    ${vault}
     ${remove ? `<div class="menu-rule"></div>${remove}` : ''}
   </div>`
 }
