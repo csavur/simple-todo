@@ -4,7 +4,7 @@ declare module 'node:child_process' {
   export function execFile(
     file: string,
     args: readonly string[],
-    options: { timeout?: number; maxBuffer?: number },
+    options: { timeout?: number; maxBuffer?: number; env?: Record<string, string | undefined> },
     callback: (error: Error | null, stdout: string, stderr: string) => void
   ): unknown
 }
@@ -41,4 +41,10 @@ declare module 'node:path' {
   export function dirname(path: string): string
 }
 
-declare const process: { execPath: string; resourcesPath?: string; pid: number }
+declare const process: {
+  execPath: string
+  resourcesPath?: string
+  pid: number
+  platform: string
+  env: Record<string, string | undefined>
+}

@@ -2,6 +2,7 @@
 // runs in; a paired Orca server is another runtime, and the CLI is the one way to it.
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 const TIMEOUT_MS = 20_000
@@ -15,13 +16,34 @@ export function orcaCliPath(): string {
   const candidates: string[] = []
   const resources = process.resourcesPath
   if (resources) {
-    candidates.push(join(resources, 'bin', 'orca'))
+    // Windows ships the launcher as orca.exe. Without it, a bare `orca` resolves to Orca.exe in
+    // the app's own folder, which the worker's environment runs as Node, and it fails.
+    candidates.push(join(resources, 'bin', 'orca'), join(resources, 'bin', 'orca.exe'))
   }
   const app = /^(.*?\.app)\//.exec(process.execPath)?.[1]
   if (app) {
     candidates.push(join(app, 'Contents', 'Resources', 'bin', 'orca'))
   }
   return candidates.find((path) => existsSync(path)) ?? 'orca'
+}
+
+/**
+ * The environment the CLI runs in. Orca starts the worker without APPDATA, which the CLI needs
+ * on Windows to find the running Orca; it is put back from the home folder when missing.
+ */
+export function cliEnv(
+  env: Record<string, string | undefined> = process.env,
+  platform: string = process.platform,
+  home: string = homedir()
+): Record<string, string | undefined> {
+  if (platform !== 'win32') {
+    return env
+  }
+  return {
+    ...env,
+    APPDATA: env.APPDATA || join(home, 'AppData', 'Roaming'),
+    LOCALAPPDATA: env.LOCALAPPDATA || join(home, 'AppData', 'Local')
+  }
 }
 
 /** What the CLI printed, as its result. The CLI answers `{ ok, result }` or `{ ok, error }`. */
@@ -45,7 +67,7 @@ export const runOrcaCli: OrcaCli = (args) =>
     execFile(
       orcaCliPath(),
       [...args, '--json'],
-      { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES },
+      { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES, env: cliEnv() },
       (error, stdout) => {
         try {
           // A failing command still prints its JSON error; prefer that to the exit status.
