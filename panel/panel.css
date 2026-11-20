@@ -1309,3 +1309,44 @@ button:disabled {
 .date-wrap > .field {
   padding-left: 9px;
 }
+
+/* The vault folder, in the list menu: its item shows the folder, its form sets it. */
+.menu-two {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.menu-sub {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.menu-form {
+  display: grid;
+  gap: 6px;
+  padding: 6px 8px 8px;
+  max-width: 280px;
+}
+
+.menu-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.menu-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.menu-hint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--dim);
+}
+
+.menu-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}

@@ -255,6 +255,10 @@ export interface UiState {
   search: string
   /** Whether the list's title is being renamed in place. */
   renaming: boolean
+  /** The Obsidian vault folder setting; empty when the lists stay on this machine. */
+  vaultFolder: string
+  /** Whether the list menu shows the box to set the vault folder. */
+  editingVault: boolean
   /** Whether the search box is showing; the header's search icon opens it. */
   searching: boolean
   /** Orca's projects, here and on paired servers. */
@@ -278,6 +282,8 @@ export function initialState(): UiState {
     prefs: DEFAULT_PREFS,
     search: '',
     renaming: false,
+    vaultFolder: '',
+    editingVault: false,
     searching: false,
     projects: [],
     adding: false,

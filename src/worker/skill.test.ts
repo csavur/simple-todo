@@ -25,7 +25,7 @@ test('installs the skill, links it for an agent with its own skills folder, and 
   const first = await syncSkill(home, 'one', true, null)
   assert.deepEqual(first, { written: 'one', notes: [] })
   assert.equal(await readFile(skillFile(home), 'utf8'), 'one')
-  assert.equal(await readlink(claudeLink(home)), '../../.agents/skills/simple-todo')
+  assert.equal((await readlink(claudeLink(home))).replace(/\\/g, '/'),'../../.agents/skills/simple-todo')
   // Through the link, as the agent reads it.
   assert.equal(await readFile(join(claudeLink(home), 'SKILL.md'), 'utf8'), 'one')
   // A newer plugin brings a newer text.

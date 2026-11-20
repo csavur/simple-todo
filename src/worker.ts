@@ -25,18 +25,24 @@ import { runOrcaCli, type OrcaCli } from './worker/cli.ts'
 import { inboxFile, type InboxFile } from './worker/files.ts'
 import { listRemoteProjects, mergeProjects } from './worker/remote.ts'
 import { syncSkill } from './worker/skill.ts'
+import { vaultDiskAt, type VaultDisk } from './worker/vault.ts'
+import { parseBase, syncVault } from './core/vault.ts'
+import { parsePrefs } from './ui/state.ts'
 
 const STATUS_BAR_ITEM = 'open'
 const PANEL_ID = 'simple-todo'
 const REMINDED_KEY = 'reminded'
 /** The text of the agent skill the worker installed, while that copy is still its own. */
 const SKILL_KEY = 'skill'
+/** What was in step with the vault folder at the last sync. */
+const VAULT_KEY = 'vault'
 
 /** How often the worker looks: at the inbox, at the agents to-dos were sent to, and at the clock
  *  (which is also how often it checks the agent skill). */
 const INBOX_MS = 5_000
 const AGENTS_MS = 20_000
 const CHORES_MS = 60_000
+const VAULT_MS = 5_000
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -81,6 +87,8 @@ export interface WorkerOptions {
   inbox?: InboxFile
   /** The home folder to keep the agent skill installed in. Without one the skill is left alone. */
   skillHome?: string
+  /** The vault folder on disk; tests stand in for it. */
+  vaultDisk?: (folder: string) => VaultDisk
   /** Whether to keep looking on timers. Tests turn them off and call for a look themselves. */
   timers?: boolean
 }
@@ -234,6 +242,9 @@ function start(
   })
 
   orca.panels.handle('inbox.path', () => ({ path: inbox.path }))
+  orca.panels.handle('vault.check', async ({ folder }) => ({
+    exists: await (options.vaultDisk ?? vaultDiskAt)(folder).exists()
+  }))
 
   // --- looking, on a timer -----------------------------------------------------------------
 
@@ -311,15 +322,80 @@ function start(
     }
   }
 
+  /** Keeps the lists in step with the vault folder, when one is set. */
+  let vaultSaid = ''
+  const sayOnce = (text: string): void => {
+    if (text && text !== vaultSaid) {
+      text.split('\n').forEach((line) => orca.log(line))
+    }
+    vaultSaid = text
+  }
+  async function syncWithVault(): Promise<void> {
+    const { vaultFolder } = await settings()
+    if (!vaultFolder) {
+      return
+    }
+    const disk = (options.vaultDisk ?? vaultDiskAt)(vaultFolder)
+    if (!(await disk.exists())) {
+      sayOnce(`vault folder ${vaultFolder} is not there: not syncing`)
+      return
+    }
+    await changeTodos(async (todos) => {
+      const [files, storedPrefs, storedBase] = await Promise.all([
+        disk.read(),
+        orca.storage.get(PREFS_KEY),
+        orca.storage.get(VAULT_KEY)
+      ])
+      const prefs = parsePrefs(storedPrefs)
+      const now = Date.now()
+      const result = syncVault({
+        folder: vaultFolder,
+        todos,
+        lists: prefs.lists,
+        files,
+        base: parseBase(storedBase),
+        newId,
+        now,
+        today: dayOf(now)
+      })
+      // Removed first: a rename that differs only in case is a remove and a write of one file.
+      for (const name of result.deletes) {
+        await disk.remove(name)
+      }
+      for (const file of result.writes) {
+        await disk.write(file)
+      }
+      if (result.writes.length + result.deletes.length > 0) {
+        orca.log(`vault: wrote ${result.writes.length} note(s), removed ${result.deletes.length}`)
+      }
+      if (JSON.stringify(result.lists) !== JSON.stringify(prefs.lists)) {
+        const raw = storedPrefs && typeof storedPrefs === 'object' ? storedPrefs : {}
+        const list = result.lists.some((item) => item.id === prefs.list) ? prefs.list : result.lists[0].id
+        await orca.storage.set(PREFS_KEY, { ...raw, lists: result.lists, list } as never)
+      }
+      if (JSON.stringify(result.base) !== JSON.stringify(storedBase)) {
+        await orca.storage.set(VAULT_KEY, result.base as never)
+      }
+      sayOnce(result.notes.join('\n'))
+      return JSON.stringify(result.todos) === JSON.stringify(todos) ? todos : result.todos
+    })
+  }
+
   const guarded = (name: string, run: () => Promise<void>) => (): Promise<void> =>
     run().catch((error: unknown) => orca.log(`${name} failed: ${messageOf(error)}`))
   const lookAtInbox = guarded('inbox', takeInbox)
   const lookAtAgents = guarded('agents', followAgents)
   const lookAtClock = guarded('chores', chores)
+  const lookAtVault = guarded('vault', syncWithVault)
   // One at a time: a setting flipped during a look must not write while the look removes.
   let skillRun: Promise<void> = Promise.resolve()
   const lookAtSkill = (): Promise<void> => (skillRun = skillRun.then(guarded('agent skill', keepSkill)))
-  const settingsWatch = options.skillHome === undefined ? null : orca.settings.onDidChange(() => void lookAtSkill())
+  const settingsWatch = orca.settings.onDidChange(() => {
+    if (options.skillHome !== undefined) {
+      void lookAtSkill()
+    }
+    void lookAtVault()
+  })
 
   const timers =
     options.timers === false
@@ -328,6 +404,7 @@ function start(
           setInterval(() => void lookAtInbox(), INBOX_MS),
           setInterval(() => void lookAtAgents(), AGENTS_MS),
           setInterval(() => void lookAtClock(), CHORES_MS),
+          setInterval(() => void lookAtVault(), VAULT_MS),
           // The setting is heard as it changes; this puts back a skill that was removed by hand.
           setInterval(() => void lookAtSkill(), CHORES_MS)
         ]
@@ -335,6 +412,7 @@ function start(
     void lookAtInbox()
     void lookAtClock()
     void lookAtSkill()
+    void lookAtVault()
   }
 
   orca.panels.handle('projects.list', () =>
@@ -401,13 +479,14 @@ function start(
   return {
     stop() {
       timers.forEach((timer) => clearInterval(timer))
-      settingsWatch?.dispose()
+      settingsWatch.dispose()
     },
     async look() {
       await lookAtInbox()
       await lookAtAgents()
       await lookAtClock()
       await lookAtSkill()
+      await lookAtVault()
     }
   }
 }

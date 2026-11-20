@@ -58,6 +58,8 @@ declare module 'orca' {
       input: WorkspaceRef & { agent: string; prompt: string }
       output: Outcome<{ terminalId?: string }>
     }
+    /** Whether a folder is there, before it is saved as the vault folder. */
+    'vault.check': { input: { folder: string }; output: { exists: boolean } }
     /** The file agents append to-dos to. */
     'inbox.path': { output: { path: string } }
     /** Whether the quick-add shortcut was pressed while no panel was open to hear it. Asking clears it. */

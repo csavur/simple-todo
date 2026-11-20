@@ -57,6 +57,14 @@
     ],
     "settings": [
       {
+        "key": "vaultFolder",
+        "title": "Obsidian vault folder",
+        "description": "The full path of a folder in your Obsidian vault to keep the lists in, one note per list, so Obsidian Sync carries them to your other machines. Give each machine the same folder in its vault. Use a folder of its own: notes in it that are not lists are left alone. Empty keeps the lists on this machine only.",
+        "type": "string",
+        "default": "",
+        "placeholder": "D:\\Obsidian\\Vault\\To-dos"
+      },
+      {
         "key": "promptPrefix",
         "title": "Text before a to-do sent to an agent",
         "description": "Put before the to-do's text when you send it to an agent, for example: Work on this and report back when done.",
